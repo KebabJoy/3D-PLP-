@@ -1,0 +1,9 @@
+{
+  "name" : "mainvkr",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "6ba86f3584f98aa16944408341f7c8e363c3356b",
+  "dependencies" : [ {
+    "name" : "nlohmann-json",
+    "version>=" : "3.11.2"
+  } ]
+}

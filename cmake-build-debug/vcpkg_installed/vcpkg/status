@@ -1,0 +1,24 @@
+Package: vcpkg-cmake-config
+Version: 2022-02-06
+Port-Version: 1
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 875d0e827fd17fabdf04b51cb8f6f2e842162fcb817e45c8e47e7eb476e39583
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2022-12-22
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: 81fa638c244f5e3b5f31eba25b3b9d36b9ef6bf4c9abfa29420c7eda1aa39a54
+Status: install ok installed
+
+Package: nlohmann-json
+Version: 3.11.2
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: arm64-osx
+Multi-Arch: same
+Abi: ef794348fbefcdc6ee6154d5d19c015bf0cd6316a289d35ea32ed25298c43bf7
+Description: JSON for Modern C++
+Status: install ok installed
+
