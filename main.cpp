@@ -34,10 +34,13 @@ struct Box {
 };
 
 struct Population {
+    int id{};
     vector<int> boxOrderIds;
     vector<int> boxRotation;
     vector<float> fitness;
     vector<vector<int> > result;
+    int rank{};
+    float CD{};
 };
 
 struct Solution {
@@ -56,6 +59,12 @@ struct DBLF {
     int f6;
 };
 
+struct DrawingDist {
+    int ind;
+    int id;
+    vector<float> fitness;
+};
+
 Solution solution { .totalLPerimeter = 0, .numP = 0 };
 
 void printBoxes(const vector<Box>& boxs){
@@ -66,6 +75,16 @@ void printBoxes(const vector<Box>& boxs){
         cout << "SizeZ: " << box.sizeZ << endl;
         cout << "lPerimeter: " << box.lPerimeter << endl;
         cout << endl;
+    }
+}
+
+void printDrawingDist(const vector<DrawingDist>& dict1){
+    for (int i = 0; i < dict1.size(); ++i) {
+        cout << "id: " << dict1[i].id << '\n';
+        for (int j = 0; j < dict1[i].fitness.size(); ++j) {
+            cout << dict1[i].fitness[j] << ' ';
+        }
+        cout << '\n';
     }
 }
 
@@ -156,11 +175,12 @@ vector<Population> generatePopulation(const vector<Box>& boxes) {
             rotations[j] = distr(eng);
         }
 
-        population[i] = { .boxOrderIds = boxOrderIds, .boxRotation = rotations };
+        population[i] = { .id = i, .boxOrderIds = boxOrderIds, .boxRotation = rotations };
     }
 
     for (int i = 4; i < NUM_OF_INDIVIDUALS; ++i) {
         population[i] = {
+                .id = i,
                 .boxOrderIds = shuffleBoxIds(boxOrderIds),
                 .boxRotation = genRotations(ROTATIONS - 1, boxes.size())
         };
@@ -292,9 +312,9 @@ vector<float> getDominantSolution(const vector<float>& pFitness, const vector<fl
     }
 }
 
-std::vector<vector<float> > calcDrawingDist(const vector<Population>& population){
-    int obj = population[0].fitness.size() - 1;
-    std::vector<vector<float> > dict1;
+std::vector<DrawingDist> calcDrawingDist(const vector<Population>& population){
+    int obj = (int)population[0].fitness.size() - 1;
+    std::vector<DrawingDist> dict1;
     dict1.reserve(population.size());
     set<int> ranks;
 
@@ -302,36 +322,36 @@ std::vector<vector<float> > calcDrawingDist(const vector<Population>& population
         ranks.insert((int)population[i].fitness[3]);
     }
 
-    std::vector<std::vector<float> > group;
+    vector<DrawingDist> group;
     group.reserve(population.size());
 
     for (auto const& rank : ranks) {
         group.clear();
 
+        int cntr = 0;
         for (int groupInd = 0; groupInd < population.size(); ++groupInd) {
             if ((int)population[groupInd].fitness[3] == rank) {
-                group.push_back(population[groupInd].fitness);
+                group.push_back({ .ind = cntr, .id = groupInd, .fitness = population[groupInd].fitness });
+                cntr++;
             }
         }
         for (int i = 0; i < group.size(); ++i) {
-            group[i].push_back(0);
+            group[i].fitness.push_back(0);
         }
 
         for (int i = 0; i < obj; i++) {
-            std::vector<std::vector<float> > sortedGroup(group.begin(), group.end());
+            std::vector<DrawingDist> sortedGroup(group.begin(), group.end());
             std::sort(sortedGroup.begin(), sortedGroup.end(),
-                      [i](auto const& x, auto const& y) { return x[i] < y[i]; });
-            std::vector<std::vector<float> > list1;
-            list1.reserve(sortedGroup.size());
+                      [i](auto const& x, auto const& y) { return x.fitness[i] < y.fitness[i]; });
 
-            for (auto const& item : sortedGroup) {
-                list1.push_back(item);
-            }
+            sortedGroup[0].fitness[4] = 5000;
+            group[sortedGroup[0].ind].fitness[4] = 5000;
+            sortedGroup.back().fitness[4] = 5000;
+            group[sortedGroup.back().ind].fitness[4] = 5000;
 
-            list1[0][4] = 5000;
-            list1.back()[4] = 5000;
-            for (int j = 1; j < list1.size() - 1; j++) {
-                list1[j][4] += (list1[j + 1][i] - list1[j - 1][i]) / 100;
+            for (int j = 1; j < sortedGroup.size() - 1; j++) {
+                sortedGroup[j].fitness[4] = (sortedGroup[j + 1].fitness[i] - sortedGroup[j - 1].fitness[i]) / 100.f;
+                group[sortedGroup[j].ind].fitness[4] = (sortedGroup[j + 1].fitness[i] - sortedGroup[j - 1].fitness[i]) / 100.f;
             }
         }
         dict1.insert(dict1.end(), group.begin(), group.end());
@@ -339,7 +359,48 @@ std::vector<vector<float> > calcDrawingDist(const vector<Population>& population
     return dict1;
 }
 
-void ranK(vector<Population> population) {
+vector<Population> selectParents(vector<Population>& population) {
+    int lhsInd, rhsInd;
+    cout << population.size() << endl; // Wrong population.size()
+
+    vector<Population> parents(PC);
+    for(int i = 0; i < PC; ++i){
+        std::random_device rd;
+        std::mt19937 eng(rd());
+        std::uniform_int_distribution<> distr(0, population.size() - 1);
+
+        lhsInd = distr(eng);
+        rhsInd = distr(eng);
+        while(rhsInd == lhsInd) {
+            rhsInd = distr(eng);
+        }
+
+        vector<Population> pool = { population[lhsInd], population[rhsInd] };
+        if(pool[0].rank > pool[1].rank) {
+            parents[i] = pool[0];
+            population.erase(population.begin() + lhsInd);
+        } else if(pool[0].rank < pool[1].rank) {
+            parents[i] = pool[1];
+            population.erase(population.begin() + rhsInd);
+        } else if(pool[0].CD > pool[1].CD) {
+            parents[i] = pool[0];
+            population.erase(population.begin() + lhsInd);
+        } else {
+            parents[i] = pool[1];
+            population.erase(population.begin() + rhsInd);
+        }
+    }
+
+    return parents;
+}
+
+
+void crossover(vector<Population> population){
+    vector<Population> parents = selectParents(population);
+//    vector<int> child = recombine(parents);
+}
+
+void ranK(vector<Population>& population) {
     vector<Solution> solutions(population.size(), { .totalLPerimeter = 0, .numP = 0 });
     set<int> frontal;
 
@@ -365,7 +426,7 @@ void ranK(vector<Population> population) {
     }
 
     int i = 1;
-    while(frontal.size() != 0){
+    while(!frontal.empty()){
         set<int> sub;
         for (auto sol : frontal) {
             for(auto dominatedSolution : solutions[sol].sP){
@@ -381,13 +442,15 @@ void ranK(vector<Population> population) {
         i += 1;
         frontal = sub;
     }
-    calcDrawingDist(population);
-//
-//    for key, value in result.items():
-//        population[key]['Rank'] = value[3]
-//        population[key]['CD'] = value[4]
-
-//    return population;
+    vector<DrawingDist> result = calcDrawingDist(population);
+//    cout << "POPULATION:\n";
+    for (int j = 0; j < result.size(); ++j) {
+        population[result[j].id].rank = (int)result[j].fitness[3];
+        population[result[j].id].CD = result[j].fitness[4];
+    }
+//    for (int j = 0; j < population.size(); ++j) {
+//        cout << population[j].rank << ' ' << population[j].CD << '\n';
+//    }
 }
 
 void geneticAlg(const vector<Box>& boxes) {
@@ -402,6 +465,7 @@ void geneticAlg(const vector<Box>& boxes) {
 
             evaluate(population, boxes);
             ranK(population);
+            crossover(population);
         }
 //        printBoxes(boxes);
     }
