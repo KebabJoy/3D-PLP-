@@ -65,6 +65,18 @@ struct DrawingDist {
     vector<float> fitness;
 };
 
+class Random {
+public:
+    Random() = default;
+    Random(std::mt19937::result_type seed) : eng(seed) {}
+    int DrawNumber(int min, int max){
+        return std::uniform_int_distribution<int>{min, max}(eng);
+    }
+
+private:
+    std::mt19937 eng{std::random_device{}()};
+};
+
 Solution solution { .totalLPerimeter = 0, .numP = 0 };
 
 void printBoxes(const vector<Box>& boxs){
@@ -104,6 +116,21 @@ void print2DArray(const vector<vector<T> > group){
     }
 }
 
+void printPopulation(const vector<Population> population) {
+    cout << "POPULATION: " << endl;
+    for (const auto & pop : population) {
+        cout << "id: " << pop.id << endl;
+        cout << "rank: " << pop.rank << endl;
+        cout << "CD: " << pop.CD << endl;
+    }
+}
+
+void resetPopulationInds(vector<Population>& population){
+    for (int i = 0; i < population.size(); ++i) {
+        population[i].id = i;
+    }
+}
+
 vector<int> getBoxesIds(const vector<Box>& boxes) {
     vector<int> boxIds(boxes.size());
     for (int i = 0; i < boxes.size(); ++i) {
@@ -123,12 +150,10 @@ vector<int> shuffleBoxIds(vector<int>& boxIds) {
 
 vector<int> genRotations(int numOfInd, int size) {
     vector<int> rotations(size);
-    std::random_device rd;
-    std::mt19937 eng(rd());
-    std::uniform_int_distribution<> distr(0, numOfInd - 1);
+    Random distr;
 
     for (int i = 0; i < size; ++i) {
-        rotations[i] = distr(eng);
+        rotations[i] = distr.DrawNumber(0, numOfInd - 1);
     }
 
     return rotations;
@@ -144,9 +169,7 @@ vector<Population> generatePopulation(const vector<Box>& boxes) {
 
     vector<int> boxOrderIds(boxes.size());
     vector<int> rotations(boxes.size());
-    std::random_device rd;
-    std::mt19937 eng(rd());
-    std::uniform_int_distribution<> distr(0, ROTATIONS - 1);
+    Random distr;
     vector<Population> population(NUM_OF_INDIVIDUALS);
 
     for (int i = 0; i < x; ++i) {
@@ -172,7 +195,7 @@ vector<Population> generatePopulation(const vector<Box>& boxes) {
 
         for (int j = 0; j < sortedBoxes.size(); ++j) {
             boxOrderIds[j] = sortedBoxes[j].id;
-            rotations[j] = distr(eng);
+            rotations[j] = distr.DrawNumber(0, ROTATIONS - 1);
         }
 
         population[i] = { .id = i, .boxOrderIds = boxOrderIds, .boxRotation = rotations };
@@ -361,7 +384,7 @@ std::vector<DrawingDist> calcDrawingDist(const vector<Population>& population){
 
 vector<Population> selectParents(vector<Population>& population) {
     int lhsInd, rhsInd;
-    cout << population.size() << endl; // Wrong population.size()
+//    cout << population.size() << endl;
 
     vector<Population> parents(PC);
     for(int i = 0; i < PC; ++i){
@@ -394,10 +417,73 @@ vector<Population> selectParents(vector<Population>& population) {
     return parents;
 }
 
+vector<Population> recombine(vector<Population> parents) {
+    vector<Population> offsprings;
+    resetPopulationInds(parents); // TODO: check if at this stage parents should be immutable (N.S 6.04.2023)
+    vector<int> keys(parents.size()); // INFO: size == 28 IMPORTANT!!
+    for (size_t i = 0; i < keys.size(); ++i) {
+        keys[i] = i;
+    }
+    shuffleBoxIds(keys);
+    for (size_t i = 0; i < parents.size(); i += 2) {
+        Random distr;
+//        std::random_device rd;
+//        std::mt19937 eng(rd());
+//        std::uniform_int_distribution<> distr(0, (int)keys.size() - 1);
+
+        int k1 = distr.DrawNumber(0, (int)keys.size() - 1);
+        vector<int> boxOrder1 = parents[k1].boxOrderIds;
+        vector<int> rotations1 = parents[k1].boxRotation;
+        keys.erase(keys.begin() + k1);
+        std::uniform_int_distribution<> distr2(0, (int)keys.size() - 1);
+        int k2 = distr.DrawNumber(0, (int)keys.size() - 1);
+        vector<int> boxOrder2 = parents[k2].boxOrderIds;
+        vector<int> rotations2 = parents[k2].boxRotation;
+        keys.erase(keys.begin() + k2);
+        int ik = distr.DrawNumber(1, (int)boxOrder1.size() / 2 + 1);
+
+//        i = random.randint(1, int(len(o1) / 2) + 1)
+//        j = random.randint(i + 1, int(len(o1) - 1))
+//        # print("Values of i is {} and j is {}".format(i, j))
+//        co1 = [-1] * len(o1)
+//        co2 = [-1] * len(o2)
+//        cr1 = [-1] * len(r1)
+//        cr2 = [-1] * len(r2)
+//
+//        co1[i:j + 1] = o1[i:j + 1]
+//        co2[i:j + 1] = o2[i:j + 1]
+//        cr1[i:j + 1] = r1[i:j + 1]
+//        cr2[i:j + 1] = r2[i:j + 1]
+//        pos = (j + 1) % len(o2)
+//        for k in range(len(o2)):
+//            if o2[k] not in co1 and co1[pos] == -1:
+//                co1[pos] = o2[k]
+//                pos = (pos + 1) % len(o2)
+//        pos = (j + 1) % len(o2)
+//        for k in range(len(o1)):
+//            if o1[k] not in co2 and co2[pos] == -1:
+//                co2[pos] = o1[k]
+//                pos = (pos + 1) % len(o1)
+//        pos = (j + 1) % len(o2)
+//        for k in range(len(r2)):
+//            if cr1[pos] == -1:
+//                cr1[pos] = r2[k]
+//                pos = (pos + 1) % len(r2)
+//        pos = (j + 1) % len(o2)
+//        for k in range(len(r1)):
+//            if cr2[pos] == -1:
+//                cr2[pos] = r1[k]
+//                pos = (pos + 1) % len(r1)
+//        offsprings[x] = {'order': deepcopy(co1), 'rotate': deepcopy(cr1)}
+//        offsprings[x + 1] = {'order': deepcopy(co2), 'rotate': deepcopy(cr2)}
+    }
+
+    return offsprings;
+}
 
 void crossover(vector<Population> population){
     vector<Population> parents = selectParents(population);
-//    vector<int> child = recombine(parents);
+    vector<Population> child = recombine(parents);
 }
 
 void ranK(vector<Population>& population) {
