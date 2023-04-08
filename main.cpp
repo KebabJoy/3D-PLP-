@@ -1,14 +1,15 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <algorithm>
 #include <nlohmann/json.hpp>
 #include <random>
 #include <set>
 
-#define PALLET_WIDTH 150
-#define PALLET_DEPTH 150
+#define PALLET_WIDTH 50
+#define PALLET_DEPTH 50
 
 using json = nlohmann::json;
 using namespace std;
@@ -73,6 +74,10 @@ public:
         return std::uniform_int_distribution<int>{min, max}(eng);
     }
 
+    float DrawFloat(float min, float max) {
+        return std::uniform_real_distribution<float>{min, max}(eng);
+    }
+
 private:
     std::mt19937 eng{std::random_device{}()};
 };
@@ -122,6 +127,20 @@ void printPopulation(const vector<Population> population) {
         cout << "id: " << pop.id << endl;
         cout << "rank: " << pop.rank << endl;
         cout << "CD: " << pop.CD << endl;
+    }
+}
+
+void printResult(const vector<Population>& population){
+    cout << "RESULT: " << endl;
+    for (int j = 0; j < population.size(); ++j) {
+        cout << "POPULATION: \n";
+        for (int k = 0; k < population[j].result.size(); ++k) {
+            for (int l = 0; l < population[j].result[k].size(); ++l) {
+                cout << population[j].result[k][l] << ' ';
+            }
+            cout << endl;
+        }
+        cout << endl;
     }
 }
 
@@ -195,7 +214,7 @@ vector<Population> generatePopulation(const vector<Box>& boxes) {
 
         for (int j = 0; j < sortedBoxes.size(); ++j) {
             boxOrderIds[j] = sortedBoxes[j].id;
-            rotations[j] = distr.DrawNumber(0, ROTATIONS - 1);
+            rotations[j] = distr.DrawNumber(0, ROTATIONS - 1); // test random difference
         }
 
         population[i] = { .id = i, .boxOrderIds = boxOrderIds, .boxRotation = rotations };
@@ -310,6 +329,13 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
                 ((value / totalValue * 100.f)),
         };
         population[i].fitness = fitness;
+//        cout << "RESULT: " << endl;
+//        for (int j = 0; j < result.size(); ++j) {
+//            for (int k = 0; k < result[j].size(); ++k) {
+//                cout << result[j][k] << ' ';
+//            }
+//            cout << endl;
+//        }
         population[i].result = result;
     }
 }
@@ -388,14 +414,12 @@ vector<Population> selectParents(vector<Population>& population) {
 
     vector<Population> parents(PC);
     for(int i = 0; i < PC; ++i){
-        std::random_device rd;
-        std::mt19937 eng(rd());
-        std::uniform_int_distribution<> distr(0, population.size() - 1);
+        Random distr;
 
-        lhsInd = distr(eng);
-        rhsInd = distr(eng);
+        lhsInd = distr.DrawNumber(0, population.size() - 1);
+        rhsInd = distr.DrawNumber(0, population.size() - 1);
         while(rhsInd == lhsInd) {
-            rhsInd = distr(eng);
+            rhsInd = distr.DrawNumber(0, population.size() - 1);
         }
 
         vector<Population> pool = { population[lhsInd], population[rhsInd] };
@@ -418,7 +442,7 @@ vector<Population> selectParents(vector<Population>& population) {
 }
 
 vector<Population> recombine(vector<Population> parents) {
-    vector<Population> offsprings;
+    vector<Population> offsprings(parents.size());
     resetPopulationInds(parents); // TODO: check if at this stage parents should be immutable (N.S 6.04.2023)
     vector<int> keys(parents.size()); // INFO: size == 28 IMPORTANT!!
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -427,63 +451,75 @@ vector<Population> recombine(vector<Population> parents) {
     shuffleBoxIds(keys);
     for (size_t i = 0; i < parents.size(); i += 2) {
         Random distr;
-//        std::random_device rd;
-//        std::mt19937 eng(rd());
-//        std::uniform_int_distribution<> distr(0, (int)keys.size() - 1);
 
         int k1 = distr.DrawNumber(0, (int)keys.size() - 1);
         vector<int> boxOrder1 = parents[k1].boxOrderIds;
         vector<int> rotations1 = parents[k1].boxRotation;
         keys.erase(keys.begin() + k1);
-        std::uniform_int_distribution<> distr2(0, (int)keys.size() - 1);
+
         int k2 = distr.DrawNumber(0, (int)keys.size() - 1);
         vector<int> boxOrder2 = parents[k2].boxOrderIds;
         vector<int> rotations2 = parents[k2].boxRotation;
         keys.erase(keys.begin() + k2);
-        int ik = distr.DrawNumber(1, (int)boxOrder1.size() / 2 + 1);
 
-//        i = random.randint(1, int(len(o1) / 2) + 1)
-//        j = random.randint(i + 1, int(len(o1) - 1))
-//        # print("Values of i is {} and j is {}".format(i, j))
-//        co1 = [-1] * len(o1)
-//        co2 = [-1] * len(o2)
-//        cr1 = [-1] * len(r1)
-//        cr2 = [-1] * len(r2)
-//
-//        co1[i:j + 1] = o1[i:j + 1]
-//        co2[i:j + 1] = o2[i:j + 1]
-//        cr1[i:j + 1] = r1[i:j + 1]
-//        cr2[i:j + 1] = r2[i:j + 1]
-//        pos = (j + 1) % len(o2)
-//        for k in range(len(o2)):
-//            if o2[k] not in co1 and co1[pos] == -1:
-//                co1[pos] = o2[k]
-//                pos = (pos + 1) % len(o2)
-//        pos = (j + 1) % len(o2)
-//        for k in range(len(o1)):
-//            if o1[k] not in co2 and co2[pos] == -1:
-//                co2[pos] = o1[k]
-//                pos = (pos + 1) % len(o1)
-//        pos = (j + 1) % len(o2)
-//        for k in range(len(r2)):
-//            if cr1[pos] == -1:
-//                cr1[pos] = r2[k]
-//                pos = (pos + 1) % len(r2)
-//        pos = (j + 1) % len(o2)
-//        for k in range(len(r1)):
-//            if cr2[pos] == -1:
-//                cr2[pos] = r1[k]
-//                pos = (pos + 1) % len(r1)
-//        offsprings[x] = {'order': deepcopy(co1), 'rotate': deepcopy(cr1)}
-//        offsprings[x + 1] = {'order': deepcopy(co2), 'rotate': deepcopy(cr2)}
+        int ik = distr.DrawNumber(1, (int)boxOrder1.size() / 2 + 1);
+        int jk = distr.DrawNumber(i + 1, boxOrder1.size() - 1);
+
+        vector<int> co1(boxOrder1.size(), -1);
+        vector<int> co2(boxOrder2.size(), -1);
+        vector<int> cr1(rotations1.size(), -1);
+        vector<int> cr2(rotations2.size(), -1);
+
+        for (int k = ik; k <= jk; ++k) {
+            co1[k] = boxOrder1[k];
+            co2[k] = boxOrder2[k];
+            cr1[k] = rotations1[k];
+            cr2[k] = rotations2[k];
+        }
+        int pos = (jk + 1) % boxOrder2.size();
+
+        for (int k = 0; k < boxOrder2.size(); ++k) {
+            if (std::find(co1.begin(), co1.end(), boxOrder2[k]) == co1.end() && co1[pos] == -1) {
+                co1[pos] = boxOrder2[k];
+                pos = (pos + 1) % boxOrder2.size();
+            }
+        }
+
+        pos = (jk + 1) % boxOrder2.size();
+        for (int k = 0; k < boxOrder1.size(); ++k) {
+            if (std::find(co2.begin(), co2.end(), boxOrder1[k]) == co2.end() && co2[pos] == -1) {
+                co2[pos] = boxOrder1[k];
+                pos = (pos + 1) % boxOrder1.size();
+            }
+        }
+
+        pos = (jk + 1) % boxOrder2.size();
+        for (int k = 0; k < rotations2.size(); ++k) {
+            if (cr1[pos] == -1) {
+                cr1[pos] = rotations2[k];
+                pos = (pos + 1) % rotations2.size();
+            }
+        }
+
+        pos = (jk + 1) % boxOrder2.size();
+        for (int k = 0; k < rotations1.size(); ++k) {
+            if (cr2[pos] == -1) {
+                cr2[pos] = rotations1[k];
+                pos = (pos + 1) % rotations1.size();
+            }
+        }
+
+        offsprings[i] = { .boxOrderIds = co1, .boxRotation = cr1 };
+        offsprings[i + 1] = { .boxOrderIds = co2, .boxRotation = cr2 };
     }
 
     return offsprings;
 }
 
-void crossover(vector<Population> population){
+vector<Population> crossover(vector<Population> population){
     vector<Population> parents = selectParents(population);
     vector<Population> child = recombine(parents);
+    return child;
 }
 
 void ranK(vector<Population>& population) {
@@ -539,6 +575,90 @@ void ranK(vector<Population>& population) {
 //    }
 }
 
+void mutate(vector<Population>& offsprings){
+    Random rand;
+//    cout << "BEFORE: \n";
+//    for (int i = 0; i < offsprings[0].boxOrderIds.size(); ++i) {
+//        cout << offsprings[0].boxOrderIds[i] << ' ';
+//    }
+//    cout << endl;
+
+    for (int i = 0; i < offsprings.size(); ++i) {
+        vector<int>& boxOrderIds = offsprings[i].boxOrderIds;
+        vector<int>& rotations = offsprings[i].boxRotation;
+
+        if(rand.DrawFloat(0.0, 1.0) <= PM1){
+            int ik = rand.DrawNumber(1, static_cast<int>(boxOrderIds.size()) / 2 + 1);
+            int jk = rand.DrawNumber(i + 1, static_cast<int>(boxOrderIds.size()) - 1);
+//            cout << "IK: " << ik << " JK: " << jk << endl; // DEBUG
+            reverse(boxOrderIds.begin() + ik, boxOrderIds.begin() + jk + 1);
+            reverse(rotations.begin() + ik, rotations.begin() + jk + 1);
+        }
+
+        // Second lvl of mutation
+        for (int & rotation : rotations) {
+            if (rand.DrawFloat(0.0, 1.0) <= PM2) {
+                rotation = rand.DrawNumber(0, ROTATIONS);
+            }
+        }
+
+//        cout << "MUTATION NUMBER " << i << endl;
+//        for (int j = 0; j < boxOrderIds.size(); ++j) {
+//            cout << boxOrderIds[j] << ' ';
+//        }
+//        cout << endl;
+
+    }
+
+//    cout << "AFTER: \n";
+//    for (int i = 0; i < offsprings[0].boxOrderIds.size(); ++i) {
+//        cout << offsprings[0].boxOrderIds[i] << ' ';
+//    }
+//    cout << endl;
+}
+
+vector<Population> select(
+        vector<Population> population,
+        vector<Population> offsprings,
+        vector<Box> boxes){
+    vector<Population> survivors;
+    evaluate(offsprings, boxes);
+    ranK(offsprings);
+    auto pool = population;
+    pool.insert(pool.end(), offsprings.begin(), offsprings.end());
+
+    int i = 1;
+    while (survivors.size() < NUM_OF_INDIVIDUALS) {
+        vector<Population> group;
+
+        for (const auto& entry : pool) {
+            if (entry.rank == i) {
+                group.push_back(entry);
+            }
+        }
+
+        if (group.size() <= NUM_OF_INDIVIDUALS - survivors.size()) {
+            for (std::size_t j = 0; j < group.size(); ++j) {
+                survivors.push_back(group[j]);
+            }
+        }
+        else {
+            std::sort(group.begin(), group.end(),
+                      [](const Population& a,
+                         const Population& b) {
+                          return a.CD > b.CD;
+                      });
+
+            for (std::size_t j = 0; j < NUM_OF_INDIVIDUALS - survivors.size(); ++j) {
+                survivors.push_back(group[j]);
+            }
+        }
+        i++;
+    }
+
+    return survivors;
+}
+
 void geneticAlg(const vector<Box>& boxes) {
     for (int i = 0; i < NUM_OF_ITERATIONS; ++i) {
         vector<Population> population = generatePopulation(boxes);
@@ -551,8 +671,32 @@ void geneticAlg(const vector<Box>& boxes) {
 
             evaluate(population, boxes);
             ranK(population);
-            crossover(population);
+            vector<Population> offsprings = crossover(population);
+            mutate(offsprings);
+
+            population = select(population, offsprings, boxes);
         }
+//        printResult(population);
+        vector<Population> results;
+        results.reserve(population.size());
+        for (int j = 0; j < population.size(); ++j) {
+            if(population[j].rank == 1){
+                results.push_back(population[j]);
+            }
+        }
+
+        json j = json::array();
+
+        for (const auto& p : results) {
+            json jp;
+            jp["result"] = p.result;
+            j.push_back(jp);
+        }
+
+        std::ofstream ofs("populations.json");
+        ofs << j.dump(4);  // the "4" argument adds indentation for better readability
+        ofs.close();
+
 //        printBoxes(boxes);
     }
 }
