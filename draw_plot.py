@@ -139,11 +139,11 @@ def draw(results, color_index):
     fig.add_trace(mesh[1],
                   row=1, col=2)
 
-    # fig.add_trace(mesh[2],
-    #               row=2, col=1)
-    #
-    # fig.add_trace(mesh[3],
-    #               row=2, col=2)
+    fig.add_trace(mesh[2],
+                  row=2, col=1)
+
+    fig.add_trace(mesh[3],
+                  row=2, col=2)
 
     fig.update_layout(
         title_text='Rank 1 Solutions',

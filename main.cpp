@@ -42,6 +42,8 @@ struct Population {
     vector<vector<int> > result;
     int rank{};
     float CD{};
+    int totalPerimeter;
+    int totalIntersection;
 };
 
 struct Solution {
@@ -344,24 +346,54 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
             }
         }
 
-//        int totalIntersections = 0;
-//        for(int resInd = 0; resInd < result.size(); resInd++){
-//            for(int boxInd = 0; boxInd < result.size(); boxInd++){
+        int totalIntersections = 0, totalPerimeter = 0;
+        for(int resInd = 0; resInd < result.size(); resInd++){
+            if(result[resInd][2] != 0){
+                totalPerimeter += 2 * (result[resInd][3] + result[resInd][4]);
+            } else {
+                totalPerimeter += (result[resInd][3] + result[resInd][4]);
+            }
+
+            for(int boxInd = resInd + 1; boxInd < result.size(); boxInd++){
+                if (result[resInd][0] != result[boxInd][0] || result[resInd][1] != result[boxInd][1]) {
+                    continue;
+                }
+                if (result[resInd][2] + result[resInd][5] != result[boxInd][2] && result[boxInd][2] + result[boxInd][5] != result[resInd][2]) {
+                    continue;
+                }
+
+                // Calculate length of matching edges
+                int matching_length = 0;
+                for (int k = 0; k < 2; k++) {
+                    for (int l = 0; l < 4; l++) {
+                        int edge1[3] = {result[resInd][k], result[resInd][(k+1)%3], result[resInd][(k+2)%3]};
+                        int edge2[3] = {result[boxInd][k], result[boxInd][(k+1)%3], result[boxInd][(k+2)%3]};
+                        if (edge1[0] == edge2[0] && edge1[1] == edge2[1]) {
+                            matching_length += min(result[resInd][k+3], result[boxInd][k+3]);
+                        }
+                    }
+                }
+
+                totalIntersections += matching_length;
 //                vector<int> box1 = result[resInd];
 //                vector<int> box2 = result[boxInd];
 //                if (box1[0]+box1[3] > box2[0] && box1[0] < box2[0]+box2[3] &&
 //                        box1[1]+box1[4] > box2[1] && box1[1] < box2[1]+box2[4]) {
 //                    totalIntersections += calculateIntersection(box1, box2);
 //                }
-//            }
-//        }
-
+            }
+        }
+//        cout << "INTER: " << totalIntersections << endl;
+//        cout << "per: " << totalPerimeter << endl;
         vector<float > fitness = {
-                (occupiedVol / containerVol * 100.f),
+                (float)(totalPerimeter - totalIntersections),
                 ((numberBoxes / boxes.size() * 100.f)),
                 ((value / totalValue * 100.f)),
         };
+
         population[i].fitness = fitness;
+        population[i].totalPerimeter = totalPerimeter;
+        population[i].totalIntersection = totalIntersections;
 //        cout << "RESULT: " << endl;
 //        for (int j = 0; j < result.size(); ++j) {
 //            for (int k = 0; k < result[j].size(); ++k) {
@@ -691,22 +723,47 @@ vector<Population> select(
     return survivors;
 }
 
+vector<float> calculateAverageFitness(const vector<Population>& population){
+    vector<float> avgFitness = { 0.f, 0.f, 0.f, 0.f };
+
+    int count = 0;
+    for (const auto & pop : population) {
+        if(pop.rank == 1){
+            count++;
+            avgFitness[0] += pop.fitness[0];
+            avgFitness[1] += pop.fitness[1];
+            avgFitness[2] += pop.fitness[1];
+            avgFitness[3] += (float)pop.totalIntersection / (float)pop.totalPerimeter;
+        }
+    }
+
+    avgFitness[0] /= count;
+    avgFitness[1] /= count;
+    avgFitness[2] /= count;
+    avgFitness[3] /= count;
+
+    return avgFitness;
+}
+
 void geneticAlg(const vector<Box>& boxes) {
     for (int i = 0; i < NUM_OF_ITERATIONS; ++i) {
         vector<Population> population = generatePopulation(boxes);
 
         int gens = 0;
-        vector<float> averageFitness;
+        vector<vector<float> > averageFitness;
         while(gens < NUM_OF_GENERATIONS) {
             gens += 1;
             cout << "DEBUG geneticALG iteration: " << gens << '\n';
 
             evaluate(population, boxes);
+            cout << "Population: " << population.size() << '\n';
+
             ranK(population);
             vector<Population> offsprings = crossover(population);
             mutate(offsprings);
 
             population = select(population, offsprings, boxes);
+            averageFitness.push_back(calculateAverageFitness(population));
         }
 //        printResult(population);
         vector<Population> results;
@@ -718,14 +775,20 @@ void geneticAlg(const vector<Box>& boxes) {
         }
 
         json j = json::array();
+        json avgFit = json::array();
 
         for (const auto& p : results) {
             json jp;
             jp["result"] = p.result;
             j.push_back(jp);
         }
+        for(const auto& p : averageFitness) {
+            avgFit.push_back(p);
+        }
 
         std::ofstream ofs("populations.json");
+        std::ofstream ofs1("avg_fitness.json");
+        ofs1 << avgFit.dump(4);
         ofs << j.dump(4);  // the "4" argument adds indentation for better readability
         ofs.close();
 
