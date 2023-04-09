@@ -1,18 +1,18 @@
 #include <fstream>
 #include <iostream>
-#include <string>
-#include <utility>
 #include <vector>
 #include <algorithm>
 #include <nlohmann/json.hpp>
 #include <random>
 #include <set>
+#include <chrono>
 
-#define PALLET_WIDTH 500
-#define PALLET_DEPTH 500
+#define PALLET_WIDTH 100
+#define PALLET_DEPTH 100
 
 using json = nlohmann::json;
 using namespace std;
+using namespace std::chrono;
 
 const int NUM_OF_ITERATIONS = 1;
 const int NUM_OF_INDIVIDUALS = 36;
@@ -231,6 +231,25 @@ vector<Population> generatePopulation(const vector<Box>& boxes) {
     return population;
 }
 
+int calculateIntersection(const vector<int>& box1, const vector<int>& box2){
+    // calculate the boundaries of the two boxes
+    int x1_min = box1[0], x1_max = box1[0] + box1[3];
+    int y1_min = box1[1], y1_max = box1[1] + box1[4];
+    int z1_min = box1[2], z1_max = box1[2] + box1[5];
+
+    int x2_min = box2[0], x2_max = box2[0] + box2[3];
+    int y2_min = box2[1], y2_max = box2[1] + box2[4];
+    int z2_min = box2[2], z2_max = box2[2] + box2[5];
+
+    // calculate the intersection of the x, y, and z coordinates
+    int x_overlap = max(0, min(x1_max, x2_max) - max(x1_min, x2_min));
+    int y_overlap = max(0, min(y1_max, y2_max) - max(y1_min, y2_min));
+    int z_overlap = max(0, min(z1_max, z2_max) - max(z1_min, z2_min));
+
+    // calculate the total perimeter intersection
+    return 2 * (x_overlap + y_overlap + z_overlap);
+}
+
 void evaluate(vector<Population>& population, const vector<Box>& boxes) {
 //    cout << population.size() << endl;
 //    vector<vector<float> > fitnesses;
@@ -242,7 +261,8 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
     int containerVol = PALLET_WIDTH * PALLET_WIDTH * 300;
     for (int i = 0; i < population.size(); ++i) {
         result.clear();
-        vector<DBLF> dblf = { { .f1 = 0, .f2 = 0,  .f3 = 0, .f4 = PALLET_DEPTH, .f5 = PALLET_WIDTH, .f6 = 300 } };
+        // TODO: research DBLF heuristic over again. Maybe there's another decent algorithm
+        vector<DBLF> dblf = { { .f1 = 0, .f2 = 0,  .f3 = 0, .f4 = PALLET_DEPTH, .f5 = PALLET_WIDTH, .f6 = 5000 } };
         occupiedVol = 0, numberBoxes = 0, value = 0;
 
         for (int boxNumber = 0; boxNumber < boxSize; ++boxNumber) {
@@ -287,8 +307,8 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
 
                 if(spaceVol >= boxVol && currentPosition.f4 >= l && currentPosition.f5 >= w && currentPosition.f6 >= h) {
                     result.push_back({currentPosition.f1, currentPosition.f2, currentPosition.f3, l, w, h});
-                    occupiedVol += boxVol;
                     numberBoxes += 1;
+                    occupiedVol += boxVol;
                     value += boxValue;
                     DBLF top_space = {
                             currentPosition.f1,
@@ -323,6 +343,19 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
                 }
             }
         }
+
+//        int totalIntersections = 0;
+//        for(int resInd = 0; resInd < result.size(); resInd++){
+//            for(int boxInd = 0; boxInd < result.size(); boxInd++){
+//                vector<int> box1 = result[resInd];
+//                vector<int> box2 = result[boxInd];
+//                if (box1[0]+box1[3] > box2[0] && box1[0] < box2[0]+box2[3] &&
+//                        box1[1]+box1[4] > box2[1] && box1[1] < box2[1]+box2[4]) {
+//                    totalIntersections += calculateIntersection(box1, box2);
+//                }
+//            }
+//        }
+
         vector<float > fitness = {
                 (occupiedVol / containerVol * 100.f),
                 ((numberBoxes / boxes.size() * 100.f)),
@@ -624,11 +657,11 @@ vector<Population> select(
     vector<Population> survivors;
     evaluate(offsprings, boxes);
     ranK(offsprings);
-    auto pool = std::move(population);
+    auto pool = population;
     pool.insert(pool.end(), offsprings.begin(), offsprings.end());
 
     int i = 1;
-    while (survivors.size() < NUM_OF_INDIVIDUALS) {
+    while (survivors.size() < NUM_OF_INDIVIDUALS && i < 10) {
         vector<Population> group;
 
         for (const auto& entry : pool) {
@@ -649,13 +682,12 @@ vector<Population> select(
                           return a.CD > b.CD;
                       });
 
-            for (std::size_t j = survivors.size(); j < NUM_OF_INDIVIDUALS; ++j) {
+            for (std::size_t j = 0; j < NUM_OF_INDIVIDUALS - survivors.size(); ++j) {
                 survivors.push_back(group[j]);
             }
         }
         i++;
     }
-
     return survivors;
 }
 
@@ -723,7 +755,12 @@ int main() {
         totalValue += box.seedValue;
     }
 
+    auto start = high_resolution_clock::now();
     geneticAlg(boxes);
+    auto end = high_resolution_clock::now();
+
+    auto duration = duration_cast<milliseconds>(end - start);
+    cout << "Time taken: " << duration.count() / 1000.f << " seconds" << endl;
 
     return 0;
 }
