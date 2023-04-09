@@ -1,7 +1,7 @@
 Detecting compiler hash for triplet arm64-osx...
 All requested packages are currently installed.
-Restored 0 package(s) from /Users/kebabjoy/.cache/vcpkg/archives in 2.21 us. Use --debug to see more details.
-Total install time: 168 us
+Restored 0 package(s) from /Users/kebabjoy/.cache/vcpkg/archives in 1 us. Use --debug to see more details.
+Total install time: 146 us
 The package nlohmann-json provides CMake targets:
 
     find_package(nlohmann_json CONFIG REQUIRED)

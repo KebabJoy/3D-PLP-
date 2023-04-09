@@ -8,8 +8,8 @@
 #include <random>
 #include <set>
 
-#define PALLET_WIDTH 50
-#define PALLET_DEPTH 50
+#define PALLET_WIDTH 500
+#define PALLET_DEPTH 500
 
 using json = nlohmann::json;
 using namespace std;
@@ -624,7 +624,7 @@ vector<Population> select(
     vector<Population> survivors;
     evaluate(offsprings, boxes);
     ranK(offsprings);
-    auto pool = population;
+    auto pool = std::move(population);
     pool.insert(pool.end(), offsprings.begin(), offsprings.end());
 
     int i = 1;
@@ -649,7 +649,7 @@ vector<Population> select(
                           return a.CD > b.CD;
                       });
 
-            for (std::size_t j = 0; j < NUM_OF_INDIVIDUALS - survivors.size(); ++j) {
+            for (std::size_t j = survivors.size(); j < NUM_OF_INDIVIDUALS; ++j) {
                 survivors.push_back(group[j]);
             }
         }
