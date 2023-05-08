@@ -1,6 +1,7 @@
 import json
 import plotly.graph_objects as go
 import numpy as np
+from numpy import random
 from plotly.subplots import make_subplots
 
 pallete = ['darkgreen', 'tomato', 'yellow', 'darkblue', 'darkviolet', 'indianred', 'yellowgreen', 'mediumblue', 'cyan',
@@ -23,6 +24,14 @@ color_pallete = ['lightcoral', 'firebrick', 'maroon', 'darkred', 'red',
                  'darkturquoise', 'cadetblue', 'thistle', 'violet', 'purple', 'darkmagenta',
                  'magenta', 'orchid', 'mediumvioletred', 'deeppink', 'hotpink', 'lavenderblush', 'palevioletred',
                  'crimson', 'lightpink']
+
+
+def generate_random_color():
+    r = random.randint(0, 255)
+    g = random.randint(0, 255)
+    b = random.randint(0, 255)
+    return f'rgb({r}, {g}, {b})'
+
 
 def cube_data(position3d, size=(1, 1, 1)):
     # position3d - 3-list or array of shape (3,) that represents the point of coords (x, y, 0), where a bar is placed
@@ -107,8 +116,7 @@ def draw_solution(pieces):
 
 def draw(results, color_index):
     mesh = []
-    clr = color_index[1]
-    sorted_pieces = color_index[0]
+    sorted_pieces, clr = color_index
 
     for pieces in results:
         positions = []
@@ -125,7 +133,7 @@ def draw(results, color_index):
 
         X, Y, Z = vertices.T
         colors2 = [val for val in colors for _ in range(12)]
-        mesh.append(go.Mesh3d(x=X, y=Y, z=Z, i=I, j=J, k=K, facecolor=colors2, flatshading=True))
+        mesh.append(go.Mesh3d(x=X, y=Y, z=Z, i=I, j=J, k=K, facecolor=colors2, showscale=True, flatshading=True))
     fig = make_subplots(
         rows=2, cols=2,
         specs=[[{'type': 'surface'}, {'type': 'surface'}],
@@ -133,17 +141,9 @@ def draw(results, color_index):
 
     # Visualize 4 Rank 1 solutions
 
-    fig.add_trace(mesh[0],
-                  row=1, col=1)
-
-    fig.add_trace(mesh[1],
-                  row=1, col=2)
-
-    fig.add_trace(mesh[2],
-                  row=2, col=1)
-
     fig.add_trace(mesh[3],
-                  row=2, col=2)
+                  row=1, col=1)
+    fig.update_traces(hovertemplate='x: %{x}<br>y: %{z}<br>z: %{y}')
 
     fig.update_layout(
         title_text='Rank 1 Solutions',
@@ -165,6 +165,5 @@ def draw(results, color_index):
 with open('populations.json') as f:
     data = json.load(f)
 
-colors = draw_solution(data[0])
+colors = draw_solution(data[2])
 draw(data, colors)
-

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Load JSON file
-with open('populations.json') as f:
+with open('pop_data.json') as f:
     data = json.load(f)
 
 # Iterate over each set of results

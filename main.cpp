@@ -7,15 +7,15 @@
 #include <set>
 #include <chrono>
 
-#define PALLET_WIDTH 100
-#define PALLET_DEPTH 100
+#define PALLET_WIDTH 1200
+#define PALLET_DEPTH 800
 
 using json = nlohmann::json;
 using namespace std;
 using namespace std::chrono;
 
 const int NUM_OF_ITERATIONS = 1;
-const int NUM_OF_INDIVIDUALS = 36;
+const int NUM_OF_INDIVIDUALS = 86;
 const int NUM_OF_GENERATIONS = 200;
 const int PC = int(0.8 * NUM_OF_INDIVIDUALS);
 const double PM1 = 0.2;
@@ -260,11 +260,11 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
     float occupiedVol, numberBoxes, value;
     size_t boxSize = boxes.size();
 
-    int containerVol = PALLET_WIDTH * PALLET_WIDTH * 300;
+    int containerVol = PALLET_WIDTH * PALLET_WIDTH * 2000;
     for (int i = 0; i < population.size(); ++i) {
         result.clear();
         // TODO: research DBLF heuristic over again. Maybe there's another decent algorithm
-        vector<DBLF> dblf = { { .f1 = 0, .f2 = 0,  .f3 = 0, .f4 = PALLET_DEPTH, .f5 = PALLET_WIDTH, .f6 = 5000 } };
+        vector<DBLF> dblf = { { .f1 = 0, .f2 = 0,  .f3 = 0, .f4 = PALLET_DEPTH, .f5 = PALLET_WIDTH, .f6 = 2000 } };
         occupiedVol = 0, numberBoxes = 0, value = 0;
 
         for (int boxNumber = 0; boxNumber < boxSize; ++boxNumber) {
@@ -278,7 +278,7 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
             for (int j = 0; j < dblf.size(); j++) {
                 DBLF currentPosition = dblf[j];
                 int l, w, h;
-                int spaceVol = currentPosition.f4 * currentPosition.f5 * currentPosition.f6;
+                unsigned long long spaceVol = currentPosition.f4 * currentPosition.f5 * currentPosition.f6;
                 int rotation = population[i].boxRotation[boxNumber];
 
                 if(rotation == 0) {
@@ -338,9 +338,9 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
                     };
                     dblf.erase(dblf.begin() + j);
 
-                    dblf.push_back(top_space);
                     dblf.push_back(beside_space);
                     dblf.push_back(front_space);
+                    dblf.push_back(top_space);
                     break;
                 }
             }
@@ -417,7 +417,7 @@ vector<float> getDominantSolution(const vector<float>& pFitness, const vector<fl
         }
     }
 
-    if(dominance[0] && dominance[0] == dominance[1] && dominance[1] == dominance[2]){
+    if(dominance[0]){
         return pFitness;
     } else if(!dominance[0] && dominance[0] == dominance[1] && dominance[1] == dominance[2]){
         return qFitness;
@@ -693,7 +693,7 @@ vector<Population> select(
     pool.insert(pool.end(), offsprings.begin(), offsprings.end());
 
     int i = 1;
-    while (survivors.size() < NUM_OF_INDIVIDUALS && i < 10) {
+    while (survivors.size() < NUM_OF_INDIVIDUALS) {
         vector<Population> group;
 
         for (const auto& entry : pool) {
@@ -713,8 +713,8 @@ vector<Population> select(
                          const Population& b) {
                           return a.CD > b.CD;
                       });
-
-            for (std::size_t j = 0; j < NUM_OF_INDIVIDUALS - survivors.size(); ++j) {
+            int size = NUM_OF_INDIVIDUALS - survivors.size();
+            for (std::size_t j = 0; j < size; j++) {
                 survivors.push_back(group[j]);
             }
         }
@@ -730,9 +730,9 @@ vector<float> calculateAverageFitness(const vector<Population>& population){
     for (const auto & pop : population) {
         if(pop.rank == 1){
             count++;
-            avgFitness[0] += pop.fitness[0];
-            avgFitness[1] += pop.fitness[1];
-            avgFitness[2] += pop.fitness[1];
+            avgFitness[0] += (float)pop.totalIntersection;
+            avgFitness[1] += (float)pop.totalPerimeter;
+            avgFitness[2] += pop.fitness[2];
             avgFitness[3] += (float)pop.totalIntersection / (float)pop.totalPerimeter;
         }
     }
@@ -760,12 +760,12 @@ void geneticAlg(const vector<Box>& boxes) {
 
             ranK(population);
             vector<Population> offsprings = crossover(population);
-            mutate(offsprings);
 
+            mutate(offsprings);
             population = select(population, offsprings, boxes);
             averageFitness.push_back(calculateAverageFitness(population));
         }
-//        printResult(population);
+
         vector<Population> results;
         results.reserve(population.size());
         for (int j = 0; j < population.size(); ++j) {
@@ -773,6 +773,8 @@ void geneticAlg(const vector<Box>& boxes) {
                 results.push_back(population[j]);
             }
         }
+
+
 
         json j = json::array();
         json avgFit = json::array();
@@ -797,7 +799,7 @@ void geneticAlg(const vector<Box>& boxes) {
 }
 
 int main() {
-    std::ifstream infile("test.json");
+    std::ifstream infile("test-2.json");
     json j;
     infile >> j;
 
