@@ -54,12 +54,12 @@ struct Solution {
 };
 
 struct DBLF {
-    int f1;
-    int f2;
-    int f3;
-    int f4;
-    int f5;
-    int f6;
+    int f1; // x
+    int f2; // y
+    int f3; // z
+    int f4; // Depth
+    int f5; // Width
+    int f6; // Height
 };
 
 struct DrawingDist {
@@ -252,6 +252,40 @@ int calculateIntersection(const vector<int>& box1, const vector<int>& box2){
     return 2 * (x_overlap + y_overlap + z_overlap);
 }
 
+bool mergeSpaces(vector<DBLF>& dblf, DBLF top_space) {
+    for (int i = 0; i < dblf.size(); ++i) {
+        if(dblf[i].f3 == top_space.f3){
+            // TODO: Сделать проверку того, что пространства находятся рядом. Удалять те что были и заменять одним новым.
+            // Можно i-й менять новым, а удалять только j-й
+            if(dblf[i].f1 == top_space.f1 && dblf[i].f4 == top_space.f4 && dblf[i].f2 + dblf[i].f5 == top_space.f2){
+                dblf[i].f5 += top_space.f5;
+                return true;
+            }
+
+            if(dblf[i].f2 == top_space.f2 && dblf[i].f5 == top_space.f5 && dblf[i].f1 + dblf[i].f4 == top_space.f1){
+                dblf[i].f4 += top_space.f4;
+                return true;
+            }
+
+            if(dblf[i].f1 == top_space.f1 && dblf[i].f4 == top_space.f4 && top_space.f2 + top_space.f5 == dblf[i].f2){
+                dblf[i].f1 = top_space.f1;
+                dblf[i].f2 = top_space.f2;
+                dblf[i].f5 += top_space.f5;
+                return true;
+            }
+            if(dblf[i].f2 == top_space.f2 && dblf[i].f5 == top_space.f5 && top_space.f1 + top_space.f1 == dblf[i].f1){
+                dblf[i].f1 = top_space.f1;
+                dblf[i].f2 = top_space.f2;
+                dblf[i].f4 += top_space.f4;
+                return true;
+            }
+        }
+    }
+
+    dblf.push_back(top_space);
+    return false;
+}
+
 void evaluate(vector<Population>& population, const vector<Box>& boxes) {
 //    cout << population.size() << endl;
 //    vector<vector<float> > fitnesses;
@@ -340,7 +374,8 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
 
                     dblf.push_back(beside_space);
                     dblf.push_back(front_space);
-                    dblf.push_back(top_space);
+//                    dblf.push_back(top_space);
+                    mergeSpaces(dblf, top_space);
                     break;
                 }
             }
@@ -773,8 +808,6 @@ void geneticAlg(const vector<Box>& boxes) {
                 results.push_back(population[j]);
             }
         }
-
-
 
         json j = json::array();
         json avgFit = json::array();
