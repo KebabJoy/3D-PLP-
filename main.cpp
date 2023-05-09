@@ -14,7 +14,7 @@ using json = nlohmann::json;
 using namespace std;
 using namespace std::chrono;
 
-const int NUM_OF_ITERATIONS = 1;
+const int NUM_OF_ITERATIONS = 20;
 const int NUM_OF_INDIVIDUALS = 86;
 const int NUM_OF_GENERATIONS = 200;
 const int PC = int(0.8 * NUM_OF_INDIVIDUALS);
@@ -375,6 +375,7 @@ void evaluate(vector<Population>& population, const vector<Box>& boxes) {
                     dblf.push_back(beside_space);
                     dblf.push_back(front_space);
 //                    dblf.push_back(top_space);
+                    // TODO: add feature flag for mergeSpaces
                     mergeSpaces(dblf, top_space);
                     break;
                 }
@@ -772,15 +773,17 @@ vector<float> calculateAverageFitness(const vector<Population>& population){
         }
     }
 
-    avgFitness[0] /= count;
-    avgFitness[1] /= count;
-    avgFitness[2] /= count;
-    avgFitness[3] /= count;
+    avgFitness[0] /= (count * NUM_OF_ITERATIONS);
+    avgFitness[1] /= (count * NUM_OF_ITERATIONS);
+    avgFitness[2] /= (count * NUM_OF_ITERATIONS);
+    avgFitness[3] /= (count * NUM_OF_ITERATIONS);
 
     return avgFitness;
 }
 
 void geneticAlg(const vector<Box>& boxes) {
+    vector<vector<float> > totalFitness(NUM_OF_GENERATIONS, vector<float>(4, 0));
+
     for (int i = 0; i < NUM_OF_ITERATIONS; ++i) {
         vector<Population> population = generatePopulation(boxes);
 
@@ -799,6 +802,9 @@ void geneticAlg(const vector<Box>& boxes) {
             mutate(offsprings);
             population = select(population, offsprings, boxes);
             averageFitness.push_back(calculateAverageFitness(population));
+            for (int j = 0; j < 4; ++j) {
+                totalFitness[averageFitness.size() - 1][j] += averageFitness.back()[j];
+            }
         }
 
         vector<Population> results;
@@ -810,25 +816,26 @@ void geneticAlg(const vector<Box>& boxes) {
         }
 
         json j = json::array();
-        json avgFit = json::array();
 
         for (const auto& p : results) {
             json jp;
             jp["result"] = p.result;
             j.push_back(jp);
         }
-        for(const auto& p : averageFitness) {
-            avgFit.push_back(p);
-        }
+
 
         std::ofstream ofs("populations.json");
-        std::ofstream ofs1("avg_fitness.json");
-        ofs1 << avgFit.dump(4);
         ofs << j.dump(4);  // the "4" argument adds indentation for better readability
         ofs.close();
 
 //        printBoxes(boxes);
     }
+    json avgFit = json::array();
+    for(const auto& p : totalFitness) {
+        avgFit.push_back(p);
+    }
+    std::ofstream ofs1("avg_fitness.json");
+    ofs1 << avgFit.dump(4);
 }
 
 int main() {
